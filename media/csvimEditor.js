@@ -84,11 +84,10 @@
 	function fileSelected(/** @type {string} */ id) {
 		let idNum = id.split("_")[1];
 		if (state.activeItemNumber !== idNum) {
-			state.editMode = false;
 			document.getElementById(`csv_${state.activeItemNumber}`).classList.remove("active");
 			state.activeItemNumber = idNum;
 			document.getElementById(id).classList.add("active");
-			vscode.setState(state);
+			setEditMode(false);
 		}
 	}
 
@@ -248,18 +247,24 @@
 	});
 
 	table.addEventListener('input', (event) => {
-		if (validateInput(table, tableRegex)) state.document[state.activeItemNumber].table = table.value;
-		updateDocument();
+		if (validateInput(table, tableRegex) && state.document[state.activeItemNumber].table !== table.value) { // Yes, validation needs to be first
+			state.document[state.activeItemNumber].table = table.value;
+			updateDocument();
+		}
 	});
 
 	schema.addEventListener('input', (event) => {
-		if (validateInput(schema, schemaRegex)) state.document[state.activeItemNumber].schema = schema.value;
-		updateDocument();
+		if (validateInput(schema, schemaRegex)) {
+			state.document[state.activeItemNumber].schema = schema.value;
+			updateDocument();
+		}
 	});
 
 	filepath.addEventListener('input', (event) => {
-		if (validateInput(filepath, filepathRegex)) state.document[state.activeItemNumber].file = filepath.value;
-		updateDocument();
+		if (validateInput(filepath, filepathRegex)) {
+			state.document[state.activeItemNumber].file = filepath.value;
+			updateDocument();
+		}
 	});
 
 	quotechar.addEventListener('change', (event) => {
