@@ -9,6 +9,9 @@ dirigible_local/
 */node_modules/
 */out/
 */.vs/
+/node_modules/
+/out/
+/.vs/
 
 # files
 .DS_Store
