@@ -188,13 +188,13 @@
 			let columnValues = '<td class="column-values">';
 			for (let cv = 0; cv < state.document[state.activeItemNumber].keys[i].values.length; cv++) {
 				columnValues += `<div class="input-cell">
-						<input class="user-input" type="text" value="${state.document[state.activeItemNumber].keys[i].values[cv]}" ${inputState}>
+						<input class="user-input" type="text" id="kcv-${i}-${cv}" value="${state.document[state.activeItemNumber].keys[i].values[cv]}" ${inputState}>
 						<button type="button" title="Delete" class="user-input ${buttonClass}"><i class="codicon codicon-trash"></i></button>
 					</div>`;
 			}
 			columnValues += `<button type="button" class="icon-with-text user-input ${buttonClass}" title="Add Value"><i class="codicon codicon-add"></i>Add Value</button></td>`;
 			let tableRow = `<tr><td><div class="input-cell">
-					<input class="user-input" type="text" value="${state.document[state.activeItemNumber].keys[i].column}" ${inputState}>
+					<input class="user-input" type="text" id="kc-${i}" value="${state.document[state.activeItemNumber].keys[i].column}" ${inputState}>
 					<button type="button" title="Delete" class="user-input ${buttonClass}"><i class="codicon codicon-trash"></i></button>
 				</div></td>${columnValues}</tr>`;
 			tableInnerHtml += tableRow;
@@ -231,16 +231,25 @@
 	// Handle messages sent from the extension to the webview
 	window.addEventListener('message', event => {
 		const message = event.data; // The json data that the extension sent
-		let json;
 		switch (message.type) {
 			case 'update':
-				// Persist state information.
-				// This state is returned in the call to `vscode.getSFtate` below when a webview is reloaded.
-				state.document = message.json;
-				vscode.setState(state);
+				if (JSON.stringify(state.document, null, 2) === message.text) { // Fastest compare method I found...
+					// Persist state information.
+					// This state is returned in the call to `vscode.getState`, when a webview is reloaded.
+					// We save the state despite, the new contnet being the same because in the case of
+					// user inputs, we update the state object but we do not set the state in the VSCcode API
+					// We decided to place it here as it will keep the state updated no matter the input.
+					vscode.setState(state);
+				} else {
+					// Persist new state information.
+					// This state is returned in the call to `vscode.getState`, when a webview is reloaded.
+					state.document = JSON.parse(message.text); // TODO: Handle parse errors
 
-				// Update our webview's content
-				updateContent();
+					vscode.setState(state);
+
+					// Update our webview's content
+					updateContent();
+				}
 
 				return;
 		}
@@ -254,14 +263,14 @@
 	});
 
 	schema.addEventListener('input', (event) => {
-		if (validateInput(schema, schemaRegex)) {
+		if (validateInput(schema, schemaRegex) && state.document[state.activeItemNumber].schema !== schema.value) {
 			state.document[state.activeItemNumber].schema = schema.value;
 			updateDocument();
 		}
 	});
 
 	filepath.addEventListener('input', (event) => {
-		if (validateInput(filepath, filepathRegex)) {
+		if (validateInput(filepath, filepathRegex) && state.document[state.activeItemNumber].file !== filepath.value) {
 			state.document[state.activeItemNumber].file = filepath.value;
 			updateDocument();
 		}
@@ -272,6 +281,7 @@
 		if (quoteCharList.includes(event.target.value)) toggleQuoteCharError(false);
 		else toggleQuoteCharError(true);
 		state.document[state.activeItemNumber].delimEnclosing = quotechar.value;
+		updateDocument();
 	});
 
 	delimiter.addEventListener('change', (event) => {
@@ -279,14 +289,30 @@
 		if (delimiterList.includes(event.target.value)) toggleDelimiterError(false);
 		else toggleDelimiterError(true);
 		state.document[state.activeItemNumber].delimField = delimiter.value;
+		updateDocument();
 	});
 
-	document.addEventListener('input', event => {
+	document.addEventListener('input', event => { // Every dynamically created input
 		let node = event && event.target;
 		// @ts-ignore
-		if (!node.id) { // Every dynamically created input
+		if (node.id && node.id.startsWith('kcv-')) {
 			// @ts-ignore
-			validateInput(node, keysRegex);
+			let cvIdList = node.id.replace('kcv-', '').split('-');
+			// @ts-ignore
+			if (validateInput(node, keysRegex) && state.document[state.activeItemNumber].keys[cvIdList[0]].values[cvIdList[1]] !== node.value) {
+				// @ts-ignore
+				state.document[state.activeItemNumber].keys[cvIdList[0]].values[cvIdList[1]] = node.value;
+				updateDocument();
+			} // @ts-ignore
+		} else if (node.id && node.id.startsWith('kc-')) {
+			// @ts-ignore
+			let columnId = node.id.replace('kc-', '');
+			// @ts-ignore
+			if (validateInput(node, keysRegex) && state.document[state.activeItemNumber].keys[columnId] !== node.value) {
+				// @ts-ignore
+				state.document[state.activeItemNumber].keys[columnId].column = node.value;
+				updateDocument();
+			}
 		}
 	}, true);
 

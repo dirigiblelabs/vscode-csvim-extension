@@ -40,26 +40,10 @@ export class CsvimEditorProvider implements vscode.CustomTextEditorProvider {
 		};
 		webviewPanel.webview.html = this.getHtmlForWebview(webviewPanel.webview);
 
-		/**
-		 * Parse the csvim document to JSON
-		 */
-		function getDocumentAsJson(document: vscode.TextDocument): Array<any> {
-			const text = document.getText();
-			if (text.trim().length === 0) {
-				return [];
-			}
-
-			try {
-				return JSON.parse(text);
-			} catch {
-				throw new Error('Could not get document as json. Content is not valid json');
-			}
-		}
-
 		function updateWebview() {
 			webviewPanel.webview.postMessage({
 				type: 'update',
-				json: getDocumentAsJson(document)
+				text: document.getText()
 			});
 		}
 
@@ -77,17 +61,11 @@ export class CsvimEditorProvider implements vscode.CustomTextEditorProvider {
 		// Receive message from the webview.
 		webviewPanel.webview.onDidReceiveMessage(e => {
 			switch (e.type) {
-				case 'add':
-					// this.addNewScratch(document);
-					return;
 				case 'update':
 					this.updateTextDocument(document, e.json);
 					return;
 				case 'open':
 					this.openCsv(e.text);
-					return;
-				case 'delete':
-					// this.deleteScratch(document, e.id);
 					return;
 			}
 		});
@@ -243,6 +221,22 @@ export class CsvimEditorProvider implements vscode.CustomTextEditorProvider {
 				<script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>
 			</html>`;
+	}
+
+	/**
+	 * Parse the csvim document to JSON
+	 */
+	private getDocumentAsJson(document: vscode.TextDocument): Array<any> {
+		const text = document.getText();
+		if (text.trim().length === 0) {
+			return [];
+		}
+
+		try {
+			return JSON.parse(text);
+		} catch {
+			throw new Error('Could not get document as json. Content is not valid json');
+		}
 	}
 
 	/**
