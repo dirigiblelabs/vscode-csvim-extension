@@ -126,9 +126,9 @@ export class CsvimEditorProvider implements vscode.CustomTextEditorProvider {
 					<input type="text" id="search" placeholder="Search">
 					<span class="line"></span>
 					<span class="spacer small"></span>
-					<button type="button" title="Open" id="openCsv"><i class="codicon codicon-link-external"></i>Open</button>
-					<button type="button" title="Edit" id="editToggle"><i class="codicon codicon-edit"></i>Edit</button>
-					<button type="button" title="Delete"><i class="codicon codicon-trash"></i>Delete</button>
+					<button type="button" title="Open" id="openCsv"><i id="openCsvIcon" class="codicon codicon-link-external"></i>Open</button>
+					<button type="button" title="Edit" id="editToggle"><i id="editToggleIcon" class="codicon codicon-edit"></i>Edit</button>
+					<button type="button" title="Delete" id="deleteEntry"><i id="deleteEntryIcon" class="codicon codicon-trash"></i>Delete</button>
 				</div>
 				<div class="panel-container">
 					<div class="side-panel">
@@ -205,7 +205,7 @@ export class CsvimEditorProvider implements vscode.CustomTextEditorProvider {
 								<tfoot class="user-input invisible">
 									<tr>
 										<td colspan="2">
-											<button type="button" class="icon-with-text" title="Add Column Row"><i class="codicon codicon-add"></i> Add Column Row</button>
+											<button type="button" class="icon-with-text" id="addColumn" title="Add Column Row"><i id="addColumnIcon" class="codicon codicon-add"></i> Add Column Row</button>
 										</td>
 									</tr>
 								</tfoot>

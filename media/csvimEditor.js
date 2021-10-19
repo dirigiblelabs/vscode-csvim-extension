@@ -43,6 +43,12 @@
 		state.activeItemNumber = 0;
 	}
 
+	function compareKeys(/** @type {Object} */ first, /** @type {Object} */ second) {
+		if (first.column < second.column) return -1;
+		else if (first.column > second.column) return 1;
+		return 0;
+	}
+
 	function updateDocument() {
 		vscode.postMessage({
 			type: 'update',
@@ -119,11 +125,28 @@
 
 	function validateInput(/** @type {HTMLInputElement} */ input, /** @type {string} */ regex) {
 		let correct = RegExp(regex, 'g').test(input.value);
-		if (correct) {
-			input.classList.remove('error-input');
-		} else {
-			input.classList.add('error-input');
+		if (correct) input.classList.remove('error-input');
+		else input.classList.add('error-input');
+		return correct;
+	}
+
+	function isColumnUnique(/** @type {HTMLInputElement} */ input) {
+		let correct = true;
+		for (let i = 0; i < state.document[state.activeItemNumber].keys.length; i++) {
+			if (state.document[state.activeItemNumber].keys[i].column === input.value) correct = false;
 		}
+		if (correct) input.classList.remove('error-input');
+		else input.classList.add('error-input');
+		return correct;
+	}
+
+	function isColumnValueUnique(/** @type {HTMLInputElement} */ input, /** @type {Number} */ column) {
+		let correct = true;
+		for (let i = 0; i < state.document[state.activeItemNumber].keys[column].values.length; i++) {
+			if (state.document[state.activeItemNumber].keys[column].values[i] === input.value) correct = false;
+		}
+		if (correct) input.classList.remove('error-input');
+		else input.classList.add('error-input');
 		return correct;
 	}
 
@@ -189,13 +212,13 @@
 			for (let cv = 0; cv < state.document[state.activeItemNumber].keys[i].values.length; cv++) {
 				columnValues += `<div class="input-cell">
 						<input class="user-input" type="text" id="kcv-${i}-${cv}" value="${state.document[state.activeItemNumber].keys[i].values[cv]}" ${inputState}>
-						<button type="button" title="Delete" class="user-input ${buttonClass}"><i class="codicon codicon-trash"></i></button>
+						<button type="button" title="Delete" id="bkcv-${i}-${cv}" class="user-input ${buttonClass}"><i id="bkcv-${i}-${cv}-i" class="codicon codicon-trash"></i></button>
 					</div>`;
 			}
-			columnValues += `<button type="button" class="icon-with-text user-input ${buttonClass}" title="Add Value"><i class="codicon codicon-add"></i>Add Value</button></td>`;
+			columnValues += `<button type="button" class="icon-with-text user-input ${buttonClass}" id="addValue-${i}" title="Add Value"><i id="addValue-${i}-i" class="codicon codicon-add"></i>Add Value</button></td>`;
 			let tableRow = `<tr><td><div class="input-cell">
 					<input class="user-input" type="text" id="kc-${i}" value="${state.document[state.activeItemNumber].keys[i].column}" ${inputState}>
-					<button type="button" title="Delete" class="user-input ${buttonClass}"><i class="codicon codicon-trash"></i></button>
+					<button type="button" title="Delete" id="bkc-${i}" class="user-input ${buttonClass}"><i id="bkc-${i}-i" class="codicon codicon-trash"></i></button>
 				</div></td>${columnValues}</tr>`;
 			tableInnerHtml += tableRow;
 		}
@@ -298,8 +321,9 @@
 		if (node.id && node.id.startsWith('kcv-')) {
 			// @ts-ignore
 			let cvIdList = node.id.replace('kcv-', '').split('-');
+			// Validation MUST be first and uniqueness last
 			// @ts-ignore
-			if (validateInput(node, keysRegex) && state.document[state.activeItemNumber].keys[cvIdList[0]].values[cvIdList[1]] !== node.value) {
+			if (validateInput(node, keysRegex) && state.document[state.activeItemNumber].keys[cvIdList[0]].values[cvIdList[1]] !== node.value && isColumnValueUnique(node, cvIdList[0])) {
 				// @ts-ignore
 				state.document[state.activeItemNumber].keys[cvIdList[0]].values[cvIdList[1]] = node.value;
 				updateDocument();
@@ -308,7 +332,7 @@
 			// @ts-ignore
 			let columnId = node.id.replace('kc-', '');
 			// @ts-ignore
-			if (validateInput(node, keysRegex) && state.document[state.activeItemNumber].keys[columnId] !== node.value) {
+			if (validateInput(node, keysRegex) && state.document[state.activeItemNumber].keys[columnId] !== node.value && isColumnUnique(node)) {
 				// @ts-ignore
 				state.document[state.activeItemNumber].keys[columnId].column = node.value;
 				updateDocument();
@@ -320,21 +344,72 @@
 		let node = event && event.target;
 		if ("id" in node) {
 			// @ts-ignore
-			if (node.id === 'openCsv') {
+			if (node.id.startsWith('openCsv')) {
 				vscode.postMessage({
 					type: "open",
 					text: filepath.value
 				});
 			}
 			// @ts-ignore
-			else if (node.id === editButton.id) {
+			else if (node.id.startsWith(editButton.id)) {
 				setEditMode(!state.editMode);
+			}
+			// @ts-ignore
+			else if (node.id.startsWith("deleteEntry")) {
+				// TODO
 			}
 			// @ts-ignore
 			else if (node.id.startsWith('csv_')) {
 				// @ts-ignore
 				fileSelected(node.id);
 				renderMainPanel();
+			}
+			// @ts-ignore
+			else if (node.id.startsWith('bkcv-')) {
+				// @ts-ignore
+				let cvIdList = node.id.replace('bkcv-', '').replace('-i', '').split('-');
+				state.document[state.activeItemNumber].keys[cvIdList[0]].values.splice(cvIdList[1], 1);
+				renderMainPanel();
+				updateDocument();
+			}
+			// @ts-ignore
+			else if (node.id.startsWith('bkc-')) {
+				// @ts-ignore
+				let columnId = node.id.replace('bkc-', '').replace('-i', '');
+				state.document[state.activeItemNumber].keys.splice(columnId, 1);
+				renderMainPanel();
+				updateDocument();
+			}
+			// @ts-ignore
+			else if (node.id.startsWith('addValue-')) {
+				// @ts-ignore
+				let column = node.id.replace('addValue-', '').replace('-i', '');
+				let num = 1;
+				let values = state.document[state.activeItemNumber].keys[column].values;
+				values.sort();
+				for (let i = 0; i < values.length; i++) {
+					if (values[i] === `NEW_ENTRY_${num}`) num++;
+				}
+				state.document[state.activeItemNumber].keys[column].values.push(`NEW_ENTRY_${num}`);
+				renderMainPanel();
+				updateDocument();
+			}
+			// @ts-ignore
+			else if (node.id.startsWith('addColumn')) {
+				let num = 1;
+				let columns = state.document[state.activeItemNumber].keys;
+				columns.sort(compareKeys);
+				for (let i = 0; i < columns.length; i++) {
+					if (columns[i].column === `NEW_ENTRY_${num}`) num++;
+				}
+				state.document[state.activeItemNumber].keys.push(
+					{
+						"column": `NEW_ENTRY_${num}`,
+						"values": []
+					}
+				);
+				renderMainPanel();
+				updateDocument();
 			}
 		}
 	}, true);
