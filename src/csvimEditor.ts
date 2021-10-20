@@ -1,20 +1,5 @@
-import { Disposable, disposeAll } from './dispose';
 import * as vscode from 'vscode';
 import { getNonce } from './util';
-
-type csvimProperties = Array<{
-	name: string,
-	visible: boolean,
-	table: string,
-	schema: string,
-	file: string,
-	header: boolean,
-	useHeaderNames: boolean,
-	delimField: string,
-	delimEnclosing: string,
-	distinguishEmptyFromNull: boolean,
-	keys: Array<{ column: string, values: Array<string> }>
-}>;
 
 export class CsvimEditorProvider implements vscode.CustomTextEditorProvider {
 
@@ -47,15 +32,50 @@ export class CsvimEditorProvider implements vscode.CustomTextEditorProvider {
 			});
 		}
 
+		function notifySaveWebview() {
+			webviewPanel.webview.postMessage({
+				type: 'saved'
+			});
+		}
+
+		function notifyCsvErrorWebview() {
+			webviewPanel.webview.postMessage({
+				type: 'csv-error'
+			});
+		}
+
+		function openCsv(csvPath: string) {
+			const workspaces: any = vscode.workspace.workspaceFolders || [];
+			let openPath: string;
+			if (workspaces.length > 0) {
+				openPath = workspaces[0].uri.path;
+				openPath += csvPath.slice(workspaces[0].name.length + 1);
+				vscode.workspace.openTextDocument(openPath).then(doc => {
+					vscode.window.showTextDocument(doc);
+				}, err => {
+					vscode.window.showErrorMessage("Error while trying to open the csv file. Make sure you have the correct path.");
+					notifyCsvErrorWebview();
+				});
+			}
+		}
+
 		const changeDocumentSubscription = vscode.workspace.onDidChangeTextDocument(e => {
 			if (e.document.uri.toString() === document.uri.toString()) {
 				updateWebview();
 			}
 		});
 
+		const saveDocumentSubscription = vscode.workspace.onDidSaveTextDocument(e => {
+			if (e.uri.toString() === document.uri.toString()) {
+				notifySaveWebview();
+			}
+		});
+
+
 		// Make sure we get rid of the listener when our editor is closed.
 		webviewPanel.onDidDispose(() => {
 			changeDocumentSubscription.dispose();
+			saveDocumentSubscription.dispose();
 		});
 
 		// Receive message from the webview.
@@ -65,26 +85,15 @@ export class CsvimEditorProvider implements vscode.CustomTextEditorProvider {
 					this.updateTextDocument(document, e.json);
 					return;
 				case 'open':
-					this.openCsv(e.text);
+					openCsv(e.text);
+					return;
+				case 'error':
+					vscode.window.showErrorMessage(e.text);
 					return;
 			}
 		});
 
 		updateWebview();
-	}
-
-	private openCsv(csvPath: string) {
-		const workspaces: any = vscode.workspace.workspaceFolders || [];
-		let openPath: string;
-		if (workspaces.length > 0) {
-			console.log(Object.keys(workspaces[0].uri));
-			console.log(workspaces[0].uri.path);
-			openPath = workspaces[0].uri.path;
-			openPath += csvPath.slice(workspaces[0].name.length + 1);
-			vscode.workspace.openTextDocument(openPath).then(doc => {
-				vscode.window.showTextDocument(doc);
-			});
-		}
 	}
 
 	private getHtmlForWebview(webview: vscode.Webview): string {
@@ -134,7 +143,7 @@ export class CsvimEditorProvider implements vscode.CustomTextEditorProvider {
 					<div class="side-panel">
 						<div class="item-list">
 						</div>
-						<button type="button" title="Add New File">Add New File</button>
+						<button id="addCsv" type="button" title="Add New File">Add New File</button>
 					</div>
 					<div class="main-panel invisible">
 						<div class="panel-item row">
@@ -178,7 +187,7 @@ export class CsvimEditorProvider implements vscode.CustomTextEditorProvider {
 									</select>
 									<i class="codicon codicon-chevron-down"></i>
 								</div>
-								<label id="error-delimiter" class="error-label invisible">This delimiter is not supported!</label>
+								<label id="error-delimiter" class="warn-label invisible">This delimiter is not supported!</label>
 							</div>
 							<span class="spacer big"></span>
 							<div class="panel-item row">
@@ -188,7 +197,7 @@ export class CsvimEditorProvider implements vscode.CustomTextEditorProvider {
 									</select>
 									<i class="codicon codicon-chevron-down"></i>
 								</div>
-								<label id="error-quotechar" class="error-label invisible">This quote character is not supported!</label>
+								<label id="error-quotechar" class="warn-label invisible">This quote character is not supported!</label>
 							</div>
 						</div>
 						<div class="panel-item row">

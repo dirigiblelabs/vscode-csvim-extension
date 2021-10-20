@@ -198,7 +198,7 @@ body.vscode-high-contrast .list-item:hover {
   width: auto;
 }
 .panel-item:not(.column) > input, table,
-.error-label, .dropdown {
+.error-label, .warn-label, .dropdown {
   margin-top: 6px;
 }
 .panel-item.column > input, table,
@@ -309,7 +309,7 @@ table .input-cell {
 table .input-cell button {
   width: auto;
 }
-table .column-values > button {
+table .column-values > button:not(:first-child) {
   margin-top: 6px;
 }
 table .column-values .input-cell:not(:first-child) {
@@ -329,6 +329,17 @@ table .column-values .input-cell:not(:first-child) {
   text-overflow: ellipsis;
   white-space: nowrap;
   overflow: hidden;
+}
+.warn-input,
+.warn-input:focus {
+  border: 1px solid var(--vscode-inputValidation-warningBorder) !important;
+  outline-color: var(--vscode-inputValidation-warningBorder) !important;
+}
+.warn-label {
+  padding: 6px;
+  background-color: var(--vscode-inputValidation-warningBackground);
+  color: var(--vscode-inputValidation-warningForeground);
+  border: 1px solid var(--vscode-inputValidation-warningBorder);
 }
 .error-input,
 .error-input:focus {

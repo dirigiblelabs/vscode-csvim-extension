@@ -4,6 +4,11 @@
 	// @ts-ignore
 	const vscode = acquireVsCodeApi();
 
+	let inputIsValid = true;
+	let columnIsUnique = true;
+	let valueIsUnique = true;
+	let searchMatches = [];
+
 	const delimiterList = [',', '\\t', '|', ';', '#'];
 	const quoteCharList = ["'", "\"", "#"];
 	const tableRegex = '^[A-Za-z0-9_\\-$.]+$';
@@ -15,7 +20,11 @@
 	const mainPanel = /** @type {HTMLElement} */ (document.querySelector('.main-panel'));
 	const itemList = /** @type {HTMLElement} */ (document.querySelector('.item-list'));
 
+	const search = /** @type {HTMLInputElement} */ (document.getElementById('search'));
+
+	const openButton = /** @type {HTMLButtonElement} */ (document.getElementById('openCsv'));
 	const editButton = /** @type {HTMLButtonElement} */ (document.getElementById('editToggle'));
+	const deleteButton = /** @type {HTMLButtonElement} */ (document.getElementById('deleteEntry'));
 
 	const table = /** @type {HTMLInputElement} */ (document.getElementById('table'));
 	const schema = /** @type {HTMLInputElement} */ (document.getElementById('schema'));
@@ -87,12 +96,15 @@
 		else return "Untitled";
 	};
 
-	function fileSelected(/** @type {string} */ id) {
-		let idNum = id.split("_")[1];
+	function fileSelected(/** @type {HTMLElement} */ item) {
+		let idNum = item.id.split("_")[1];
 		if (state.activeItemNumber !== idNum) {
-			document.getElementById(`csv_${state.activeItemNumber}`).classList.remove("active");
+			let activeItem = document.getElementById(`csv_${state.activeItemNumber}`);
+			if (activeItem) { // During search, the currently selected item may not be visible
+				activeItem.classList.remove("active");
+			}
 			state.activeItemNumber = idNum;
-			document.getElementById(id).classList.add("active");
+			item.classList.add("active");
 			setEditMode(false);
 		}
 	}
@@ -103,51 +115,51 @@
 		}
 	}
 
-	function toggleQuoteCharError(/** @type {boolean} */ show) {
+	function toggleQuoteCharWarn(/** @type {boolean} */ show) {
 		if (show) {
-			quotechar.classList.add('error-input');
+			quotechar.classList.add('warn-input');
 			errorLabelQuoteChar.classList.remove('invisible');
 		} else {
-			quotechar.classList.remove('error-input');
+			quotechar.classList.remove('warn-input');
 			errorLabelQuoteChar.classList.add('invisible');
 		}
 	}
 
-	function toggleDelimiterError(/** @type {boolean} */ show) {
+	function toggleDelimiterWarn(/** @type {boolean} */ show) {
 		if (show) {
-			delimiter.classList.add('error-input');
+			delimiter.classList.add('warn-input');
 			errorLabelDelimiter.classList.remove('invisible');
 		} else {
-			delimiter.classList.remove('error-input');
+			delimiter.classList.remove('warn-input');
 			errorLabelDelimiter.classList.add('invisible');
 		}
 	}
 
 	function validateInput(/** @type {HTMLInputElement} */ input, /** @type {string} */ regex) {
-		let correct = RegExp(regex, 'g').test(input.value);
-		if (correct) input.classList.remove('error-input');
+		inputIsValid = RegExp(regex, 'g').test(input.value);
+		if (inputIsValid) input.classList.remove('error-input');
 		else input.classList.add('error-input');
-		return correct;
+		return inputIsValid;
 	}
 
 	function isColumnUnique(/** @type {HTMLInputElement} */ input) {
-		let correct = true;
+		columnIsUnique = true;
 		for (let i = 0; i < state.document[state.activeItemNumber].keys.length; i++) {
-			if (state.document[state.activeItemNumber].keys[i].column === input.value) correct = false;
+			if (state.document[state.activeItemNumber].keys[i].column === input.value) columnIsUnique = false;
 		}
-		if (correct) input.classList.remove('error-input');
-		else input.classList.add('error-input');
-		return correct;
+		if (columnIsUnique) input.classList.remove('error-input');
+		else input.classList.add('error-input'); columnIsUnique
+		return columnIsUnique;
 	}
 
 	function isColumnValueUnique(/** @type {HTMLInputElement} */ input, /** @type {Number} */ column) {
-		let correct = true;
+		valueIsUnique = true;
 		for (let i = 0; i < state.document[state.activeItemNumber].keys[column].values.length; i++) {
-			if (state.document[state.activeItemNumber].keys[column].values[i] === input.value) correct = false;
+			if (state.document[state.activeItemNumber].keys[column].values[i] === input.value) valueIsUnique = false;
 		}
-		if (correct) input.classList.remove('error-input');
+		if (valueIsUnique) input.classList.remove('error-input');
 		else input.classList.add('error-input');
-		return correct;
+		return valueIsUnique;
 	}
 
 	function renderMainPanel() {
@@ -177,14 +189,14 @@
 			delimiter.appendChild(opt);
 		}
 		if (delimiterList.includes(state.document[state.activeItemNumber].delimField)) {
-			toggleDelimiterError(false);
+			toggleDelimiterWarn(false);
 		} else {
 			let opt = document.createElement('option');
 			opt.value = state.document[state.activeItemNumber].delimField;
 			opt.innerHTML = state.document[state.activeItemNumber].delimField;
 			opt.selected = true;
 			delimiter.appendChild(opt);
-			toggleDelimiterError(true);
+			toggleDelimiterWarn(true);
 		}
 		removeOptions(quotechar);
 		for (let i = 0; i < quoteCharList.length; i++) {
@@ -197,14 +209,14 @@
 			quotechar.appendChild(opt);
 		}
 		if (quoteCharList.includes(state.document[state.activeItemNumber].delimEnclosing)) {
-			toggleQuoteCharError(false);
+			toggleQuoteCharWarn(false);
 		} else {
 			let opt = document.createElement('option');
 			opt.value = state.document[state.activeItemNumber].delimEnclosing;
 			opt.innerHTML = state.document[state.activeItemNumber].delimEnclosing;
 			opt.selected = true;
 			quotechar.appendChild(opt);
-			toggleQuoteCharError(true);
+			toggleQuoteCharWarn(true);
 		}
 		let tableInnerHtml = '';
 		for (let i = 0; i < state.document[state.activeItemNumber].keys.length; i++) {
@@ -229,16 +241,28 @@
 	 * Render the document in the webview.
 	 */
 	function showContent() {
-		if (state.document.length > 0) {
-			let items = '';
-			for (let i = 0; i < state.document.length; i++) {
-				items += `<div id="csv_${i}" class="list-item ${i == state.activeItemNumber ? 'active' : ''}"><i class="codicon codicon-file"></i>${getFileName(state.document[i].file)}</div>`;
+		let items = '';
+		if (searchMatches.length !== 0) {
+			for (let i = 0; i < searchMatches.length; i++) {
+				items += `<div id="csv_${searchMatches[i]}" class="list-item ${searchMatches[i] == state.activeItemNumber ? 'active' : ''}"><i class="codicon codicon-file"></i>${getFileName(state.document[searchMatches[i]].file, false)}</div>`;
 			}
-			itemList.innerHTML = items;
+		} else {
+			for (let i = 0; i < state.document.length; i++) {
+				items += `<div id="csv_${i}" class="list-item ${i == state.activeItemNumber ? 'active' : ''}"><i class="codicon codicon-file"></i>${getFileName(state.document[i].file, false)}</div>`;
+			}
+		}
+		itemList.innerHTML = items;
+		if (state.document.length > 0) {
+			openButton.classList.remove("invisible");
+			editButton.classList.remove("invisible");
+			deleteButton.classList.remove("invisible");
 			renderMainPanel();
 			mainPanel.classList.remove('invisible');
 			emptyFileContiner.classList.add('invisible');
 		} else {
+			openButton.classList.add("invisible");
+			editButton.classList.add("invisible");
+			deleteButton.classList.add("invisible");
 			mainPanel.classList.add('invisible');
 			emptyFileContiner.classList.remove('invisible');
 		}
@@ -275,7 +299,36 @@
 				}
 
 				return;
+			case 'saved':
+				if (!inputIsValid) {
+					vscode.postMessage({
+						type: 'error',
+						text: 'File contains errors. There is an invalid input. Saved last known good edit.'
+					});
+				} else if (!columnIsUnique) {
+					vscode.postMessage({
+						type: 'error',
+						text: 'File contains errors. Column names must be unique. Saved last known good edit.'
+					});
+				} else if (!valueIsUnique) {
+					vscode.postMessage({
+						type: 'error',
+						text: 'File contains errors. Value names must be unique within a column. Saved last known good edit.'
+					});
+				}
+				return;
+			case 'csv-error':
+				filepath.classList.add('error-input');
+				return;
 		}
+	});
+
+	search.addEventListener('input', (event) => {
+		searchMatches = [];
+		for (let i = 0; i < state.document.length; i++) {
+			if (state.document[i].file.includes(search.value)) searchMatches.push(i);
+		}
+		showContent();
 	});
 
 	table.addEventListener('input', (event) => {
@@ -301,16 +354,16 @@
 
 	quotechar.addEventListener('change', (event) => {
 		// @ts-ignore
-		if (quoteCharList.includes(event.target.value)) toggleQuoteCharError(false);
-		else toggleQuoteCharError(true);
+		if (quoteCharList.includes(event.target.value)) toggleQuoteCharWarn(false);
+		else toggleQuoteCharWarn(true);
 		state.document[state.activeItemNumber].delimEnclosing = quotechar.value;
 		updateDocument();
 	});
 
 	delimiter.addEventListener('change', (event) => {
 		// @ts-ignore
-		if (delimiterList.includes(event.target.value)) toggleDelimiterError(false);
-		else toggleDelimiterError(true);
+		if (delimiterList.includes(event.target.value)) toggleDelimiterWarn(false);
+		else toggleDelimiterWarn(true);
 		state.document[state.activeItemNumber].delimField = delimiter.value;
 		updateDocument();
 	});
@@ -344,7 +397,25 @@
 		let node = event && event.target;
 		if ("id" in node) {
 			// @ts-ignore
-			if (node.id.startsWith('openCsv')) {
+			if (node.id === 'addCsv') {
+				searchMatches = [];
+				search.value = '';
+				state.document.push({
+					"table": "",
+					"schema": "",
+					"file": "",
+					"header": false,
+					"useHeaderNames": false,
+					"delimField": ";",
+					"delimEnclosing": "\"",
+					"distinguishEmptyFromNull": true,
+					"keys": []
+				});
+				updateContent();
+				updateDocument();
+			}
+			// @ts-ignore
+			else if (node.id.startsWith(openButton.id)) {
 				vscode.postMessage({
 					type: "open",
 					text: filepath.value
@@ -355,13 +426,19 @@
 				setEditMode(!state.editMode);
 			}
 			// @ts-ignore
-			else if (node.id.startsWith("deleteEntry")) {
-				// TODO
+			else if (node.id.startsWith(deleteButton.id)) {
+				state.document.splice(state.activeItemNumber, 1);
+				if (state.document.length === 0) state.activeItemNumber = 0;
+				else if (state.activeItemNumber >= state.document.length) {
+					state.activeItemNumber = state.document.length - 1;
+				}
+				updateContent();
+				updateDocument();
 			}
 			// @ts-ignore
 			else if (node.id.startsWith('csv_')) {
 				// @ts-ignore
-				fileSelected(node.id);
+				fileSelected(node);
 				renderMainPanel();
 			}
 			// @ts-ignore
