@@ -58,6 +58,13 @@
 		return 0;
 	}
 
+	function sendError(/** @type {string} */ message) {
+		vscode.postMessage({
+			type: 'error',
+			text: message
+		});
+	}
+
 	function updateDocument() {
 		vscode.postMessage({
 			type: 'update',
@@ -290,7 +297,16 @@
 				} else {
 					// Persist new state information.
 					// This state is returned in the call to `vscode.getState`, when a webview is reloaded.
-					state.document = JSON.parse(message.text); // TODO: Handle parse errors
+					if (message.text === '') {
+						state.document = [];
+					} else {
+						try {
+							state.document = JSON.parse(message.text);
+						} catch {
+							state.document = [];
+							sendError('Error while trying to read the file. Treating it as an empty document.');
+						}
+					}
 
 					vscode.setState(state);
 
@@ -301,20 +317,11 @@
 				return;
 			case 'saved':
 				if (!inputIsValid) {
-					vscode.postMessage({
-						type: 'error',
-						text: 'File contains errors. There is an invalid input. Saved last known good edit.'
-					});
+					sendError('File contains errors. There is an invalid input. Saved last known good edit.');
 				} else if (!columnIsUnique) {
-					vscode.postMessage({
-						type: 'error',
-						text: 'File contains errors. Column names must be unique. Saved last known good edit.'
-					});
+					sendError('File contains errors. Column names must be unique. Saved last known good edit.');
 				} else if (!valueIsUnique) {
-					vscode.postMessage({
-						type: 'error',
-						text: 'File contains errors. Value names must be unique within a column. Saved last known good edit.'
-					});
+					sendError('File contains errors. Value names must be unique within a column. Saved last known good edit.');
 				}
 				return;
 			case 'csv-error':
