@@ -197,11 +197,15 @@ body.vscode-high-contrast .list-item:hover {
   margin: 0;
   width: auto;
 }
-.panel-item:not(.column) > input, table,
-.error-label, .warn-label, .dropdown {
+.panel-item:not(.column) > input,
+table,
+.error-label,
+.warn-label,
+.dropdown {
   margin-top: 6px;
 }
-.panel-item.column > input, table,
+.panel-item.column > input,
+table,
 .checkbox {
   margin-right: calc(var(--vscode-font-size) / 2);
 }
@@ -259,11 +263,10 @@ body.vscode-high-contrast .line {
 }
 .dropdown {
   position: relative;
-  background: var(--vscode-dropdown-background);
   color: var(--vscode-dropdown-foreground);
 }
 .dropdown > select {
-  background: transparent;
+  background: var(--vscode-dropdown-background);
   outline-color: var(--vscode-input-border);
   color: var(--vscode-dropdown-foreground);
   padding: 6px 8px;
@@ -278,24 +281,33 @@ body.vscode-high-contrast .line {
   top: 50%;
   transform: translate(-50%, -50%);
 }
-table, th, td {
+table,
+th,
+td {
   width: 100%;
   table-layout: fixed;
   border-collapse: collapse;
 }
-table td, table td * {
+table td,
+table td * {
   vertical-align: top;
 }
 table td {
   padding: 6px;
 }
-body.vscode-dark table, th, td {
+body.vscode-dark table,
+th,
+td {
   border: 1px solid rgba(204, 204, 204, 0.2);
 }
-body.vscode-light table, th, td {
+body.vscode-light table,
+th,
+td {
   border: 1px solid rgba(97, 97, 97, 0.19);
 }
-body.vscode-high-contrast table, th, td {
+body.vscode-high-contrast table,
+th,
+td {
   border: 1px solid var(--vscode-panel-border);
 }
 table th {

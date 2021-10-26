@@ -149,20 +149,20 @@
 		return inputIsValid;
 	}
 
-	function isColumnUnique(/** @type {HTMLInputElement} */ input) {
+	function isColumnUnique(/** @type {HTMLInputElement} */ input, /** @type {Number} */ columnId) {
 		columnIsUnique = true;
 		for (let i = 0; i < state.document[state.activeItemNumber].keys.length; i++) {
-			if (state.document[state.activeItemNumber].keys[i].column === input.value) columnIsUnique = false;
+			if (columnId !== i && state.document[state.activeItemNumber].keys[i].column === input.value) columnIsUnique = false;
 		}
 		if (columnIsUnique) input.classList.remove('error-input');
-		else input.classList.add('error-input'); columnIsUnique
+		else input.classList.add('error-input');
 		return columnIsUnique;
 	}
 
-	function isColumnValueUnique(/** @type {HTMLInputElement} */ input, /** @type {Number} */ column) {
+	function isColumnValueUnique(/** @type {HTMLInputElement} */ input, /** @type {Number} */ columnId, /** @type {Number} */ valueId) {
 		valueIsUnique = true;
-		for (let i = 0; i < state.document[state.activeItemNumber].keys[column].values.length; i++) {
-			if (state.document[state.activeItemNumber].keys[column].values[i] === input.value) valueIsUnique = false;
+		for (let i = 0; i < state.document[state.activeItemNumber].keys[columnId].values.length; i++) {
+			if (valueId !== i && state.document[state.activeItemNumber].keys[columnId].values[i] === input.value) valueIsUnique = false;
 		}
 		if (valueIsUnique) input.classList.remove('error-input');
 		else input.classList.add('error-input');
@@ -249,7 +249,7 @@
 	 */
 	function showContent() {
 		let items = '';
-		if (searchMatches.length !== 0) {
+		if (searchMatches.length > 0) {
 			for (let i = 0; i < searchMatches.length; i++) {
 				items += `<div id="csv_${searchMatches[i]}" class="list-item ${searchMatches[i] == state.activeItemNumber ? 'active' : ''}"><i class="codicon codicon-file"></i>${getFileName(state.document[searchMatches[i]].file, false)}</div>`;
 			}
@@ -332,8 +332,10 @@
 
 	search.addEventListener('input', (event) => {
 		searchMatches = [];
-		for (let i = 0; i < state.document.length; i++) {
-			if (state.document[i].file.includes(search.value)) searchMatches.push(i);
+		if (search.value.length > 0) {
+			for (let i = 0; i < state.document.length; i++) {
+				if (state.document[i].file.includes(search.value)) searchMatches.push(i);
+			}
 		}
 		showContent();
 	});
@@ -382,17 +384,20 @@
 			// @ts-ignore
 			let cvIdList = node.id.replace('kcv-', '').split('-');
 			// Validation MUST be first and uniqueness last
-			// @ts-ignore
-			if (validateInput(node, keysRegex) && state.document[state.activeItemNumber].keys[cvIdList[0]].values[cvIdList[1]] !== node.value && isColumnValueUnique(node, cvIdList[0])) {
+			if ( // @ts-ignore
+				validateInput(node, keysRegex) && // @ts-ignore
+				state.document[state.activeItemNumber].keys[cvIdList[0]].values[cvIdList[1]] !== node.value && // @ts-ignore
+				isColumnValueUnique(node, parseInt(cvIdList[0]), parseInt(cvIdList[1]))
+			) {
 				// @ts-ignore
 				state.document[state.activeItemNumber].keys[cvIdList[0]].values[cvIdList[1]] = node.value;
 				updateDocument();
 			} // @ts-ignore
 		} else if (node.id && node.id.startsWith('kc-')) {
 			// @ts-ignore
-			let columnId = node.id.replace('kc-', '');
+			let columnId = parseInt(node.id.replace('kc-', ''));
 			// @ts-ignore
-			if (validateInput(node, keysRegex) && state.document[state.activeItemNumber].keys[columnId] !== node.value && isColumnUnique(node)) {
+			if (validateInput(node, keysRegex) && state.document[state.activeItemNumber].keys[columnId] !== node.value && isColumnUnique(node, columnId)) {
 				// @ts-ignore
 				state.document[state.activeItemNumber].keys[columnId].column = node.value;
 				updateDocument();
@@ -459,7 +464,7 @@
 			// @ts-ignore
 			else if (node.id.startsWith('bkc-')) {
 				// @ts-ignore
-				let columnId = node.id.replace('bkc-', '').replace('-i', '');
+				let columnId = parseInt(node.id.replace('bkc-', '').replace('-i', ''));
 				state.document[state.activeItemNumber].keys.splice(columnId, 1);
 				renderMainPanel();
 				updateDocument();
