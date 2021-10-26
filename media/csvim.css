@@ -356,7 +356,7 @@ table .column-values .input-cell:not(:first-child) {
 .error-input,
 .error-input:focus {
   border: 1px solid var(--vscode-inputValidation-errorBorder) !important;
-  outline-color: var(--vscode-inputValidation-errorBorder) !important;
+  outline: 1px var(--vscode-inputValidation-errorBorder) !important;
 }
 .error-label {
   padding: 6px;
